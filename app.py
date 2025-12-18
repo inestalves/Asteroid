@@ -15,15 +15,15 @@ def ligar_bd():
     database = entry_database.get().strip()
 
     if not servidor:
-        messagebox.showerror("Erro", "Por favor, insira o nome do servidor!")
+        messagebox.showerror("Erro", "Por favor, insira o nome do servidor")
         return
 
     if not database:
-        messagebox.showerror("Erro", "Por favor, insira o nome da base de dados!")
+        messagebox.showerror("Erro", "Por favor, insira o nome da base de dados")
         return
 
     try:
-        # Construir string de conexão
+        # string de conexão
         porta = entry_port.get().strip()
         usuario = entry_user.get().strip()
         password = entry_password.get()
@@ -82,7 +82,7 @@ def ligar_bd():
             messagebox.showerror(
                 "Erro de Database",
                 f"A base de dados '{database}' não existe.\n"
-                "Verifique o nome ou crie a database primeiro."
+                "Verifique o nome."
             )
         else:
             messagebox.showerror(
