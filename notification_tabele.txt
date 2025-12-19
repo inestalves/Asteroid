@@ -1,0 +1,74 @@
+-- =============================================
+-- CRIAÇÃO DA TABELA NotificationSettings
+-- =============================================
+
+USE [AsteroidMonitoringDB]  -- Substitua pelo nome da sua base de dados
+GO
+
+-- Verificar se a tabela já existe
+IF OBJECT_ID('dbo.NotificationSettings', 'U') IS NOT NULL
+BEGIN
+    PRINT 'A tabela NotificationSettings já existe.';
+    -- Opcional: Adicionar colunas se faltarem
+    IF NOT EXISTS(SELECT * FROM INFORMATION_SCHEMA.COLUMNS
+                  WHERE TABLE_NAME = 'NotificationSettings' AND COLUMN_NAME = 'user_email')
+    BEGIN
+        PRINT 'Adicionando colunas em falta...';
+        ALTER TABLE NotificationSettings ADD user_email VARCHAR(255);
+    END
+END
+ELSE
+BEGIN
+    PRINT 'Criando tabela NotificationSettings...';
+
+    -- Criar tabela
+    CREATE TABLE NotificationSettings (
+        setting_id INT PRIMARY KEY IDENTITY(1,1),
+        user_email VARCHAR(255) UNIQUE NOT NULL,
+        high_priority_alerts BIT DEFAULT 1,      -- 1 = ativo, 0 = desativo
+        medium_priority_alerts BIT DEFAULT 0,
+        low_priority_alerts BIT DEFAULT 0,
+        created_date DATETIME DEFAULT GETDATE(),
+        updated_date DATETIME DEFAULT GETDATE()
+    );
+
+    -- Inserir configuração padrão
+    INSERT INTO NotificationSettings (user_email, high_priority_alerts)
+    VALUES ('admin@observatorio.pt', 1);
+
+    PRINT 'Tabela NotificationSettings criada com sucesso.';
+    PRINT 'Configuração padrão inserida: admin@observatorio.pt';
+END
+GO
+
+-- Criar índice para melhor performance
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_NotificationSettings_Email' AND object_id = OBJECT_ID('NotificationSettings'))
+BEGIN
+    CREATE INDEX IX_NotificationSettings_Email ON NotificationSettings(user_email);
+    PRINT 'Índice IX_NotificationSettings_Email criado.';
+END
+GO
+
+-- Trigger para atualizar updated_date automaticamente
+IF OBJECT_ID('dbo.trg_UpdateNotificationSettingsDate', 'TR') IS NOT NULL
+    DROP TRIGGER dbo.trg_UpdateNotificationSettingsDate;
+GO
+
+CREATE TRIGGER trg_UpdateNotificationSettingsDate
+ON NotificationSettings
+AFTER UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE NotificationSettings
+    SET updated_date = GETDATE()
+    WHERE setting_id IN (SELECT setting_id FROM Inserted);
+END
+GO
+PRINT 'Trigger trg_UpdateNotificationSettingsDate criado.';
+GO
+
+-- Verificar conteúdo da tabela
+PRINT 'Conteúdo da tabela NotificationSettings:';
+SELECT * FROM NotificationSettings;
+GO

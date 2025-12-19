@@ -1,0 +1,94 @@
+-- VIEW 1: Ranking dos Maiores PHAs
+
+CREATE OR ALTER VIEW vw_Ranking_Maiores_PHA AS
+SELECT TOP 100
+    a.full_name AS Nome,
+    a.diameter AS Diametro_KM,
+    a.H AS Magnitude,
+    a.albedo AS Albedo,
+    c.description AS Classe
+FROM Asteroid a
+LEFT JOIN Class c ON a.class_id = c.class_id
+WHERE a.pha = 'Y' 
+  AND a.diameter IS NOT NULL
+ORDER BY a.diameter DESC;
+GO
+
+-- VIEW 2: Próximos Eventos Críticos
+-- Requisito: "Data da próxima aproximação a menos de 5 distâncias lunares"
+
+CREATE OR ALTER VIEW vw_Proximos_Eventos_Criticos AS
+WITH UltimaOrbita AS (
+    SELECT 
+        op.asteroid_id, op.moid_ld, op.moid, op.epoch_cal,
+        ROW_NUMBER() OVER(PARTITION BY op.asteroid_id ORDER BY op.orbit_param_id DESC) as rn
+    FROM Orbital_Parameters op
+)
+SELECT 
+    a.full_name AS Asteroide,
+    uo.moid_ld AS Distancia_Minima_LD,
+    uo.moid AS Distancia_Minima_UA,
+    uo.epoch_cal AS Data_Referencia
+FROM UltimaOrbita uo
+INNER JOIN Asteroid a ON uo.asteroid_id = a.asteroid_id
+WHERE uo.rn = 1 
+  AND uo.moid_ld < 5.0;
+GO
+
+-- VIEW 3: Estatísticas dos Centros de Observação (com mais observações)
+
+CREATE OR ALTER VIEW vw_Estatisticas_Centros AS
+SELECT TOP 20
+    oc.name AS Centro,
+    c.name AS Pais,
+    COUNT(o.observation_id) AS Total_Observacoes,
+    COUNT(DISTINCT o.asteroid_id) AS Asteroides_Unicos
+FROM Observation o
+INNER JOIN Equipment e ON o.equipment_id = e.equipment_id
+INNER JOIN Observation_Center oc ON e.center_id = oc.center_id
+INNER JOIN Country c ON oc.country_id = c.country_id
+GROUP BY oc.name, c.name
+ORDER BY Total_Observacoes DESC;
+GO
+
+-- VIEW 4: Estatísticas de Alertas (Vermelho, Laranja, PHAs >100m)
+CREATE OR ALTER VIEW vw_Estatisticas_Alertas AS
+SELECT
+    (SELECT COUNT(*) FROM Alert WHERE priority_level = 1) AS Alertas_Alta_Prioridade,
+    (SELECT COUNT(*) FROM Alert WHERE priority_level = 2) AS Alertas_Media_Prioridade,
+    (SELECT COUNT(*) FROM Alert WHERE priority_level = 3) AS Alertas_Baixa_Prioridade,
+    (SELECT COUNT(*) FROM Asteroid WHERE pha = 'Y' AND diameter > 0.1) AS PHAs_Maior_100m;
+
+-- VIEW 5: Novos NEOs no Último Mês
+CREATE OR ALTER VIEW vw_Novos_NEOs_Ultimo_Mes AS
+SELECT COUNT(*) AS Novos_NEOs
+FROM Asteroid
+WHERE neo = 'Y'
+  AND discovery_date >= DATEADD(month, -1, GETDATE());
+
+-- VIEW 6: Evolução da Precisão (RMS)
+
+CREATE OR ALTER VIEW vw_Evolucao_Precisao AS
+SELECT 
+    LEFT(op.epoch_cal, 4) AS Ano,
+    COUNT(*) AS Qtd_Calculos,
+    AVG(op.rms) AS RMS_Medio
+FROM Orbital_Parameters op
+WHERE TRY_CAST(LEFT(op.epoch_cal, 4) AS INT) IS NOT NULL 
+  AND TRY_CAST(LEFT(op.epoch_cal, 4) AS INT) > 1900
+GROUP BY LEFT(op.epoch_cal, 4);
+GO
+
+-- VIEW 7: Dashboard de Alertas Ativos
+
+CREATE OR ALTER VIEW vw_Alertas_Ativos AS
+SELECT 
+    al.alert_id,
+    a.full_name AS Asteroide,
+    al.alert_date AS Data_Alerta,
+    al.priority_level AS Nivel,
+    al.description AS Descricao
+FROM Alert al
+INNER JOIN Asteroid a ON al.asteroid_id = a.asteroid_id
+WHERE al.is_active = 1;
+GO
